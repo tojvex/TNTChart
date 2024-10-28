@@ -28,5 +28,5 @@ To get started with the project, clone the repository and install the necessary 
 ```bash
 git clone https://github.com/DreamDevsOrg/thetascreener.git
 cd ThetaScreener
-npm i --legacy-peer-deps
+npm i
 npm start
