@@ -8,10 +8,17 @@ const getPhantomProvider = () => {
   return null;
 };
 
+const CHAINS = {
+  ethereum: { chainId: '0x1', name: 'Ethereum' },
+  polygon: { chainId: '0x89', name: 'Polygon' },
+  bsc: { chainId: '0x38', name: 'BSC' },
+};
+
 export const useWallet = () => {
   const [account, setAccount] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [walletType, setWalletType] = useState('');
+  const [currentChain, setCurrentChain] = useState('');
 
   const handleMetaMaskAccount = useCallback((accounts) => {
     if (accounts.length === 0) {
@@ -22,6 +29,10 @@ export const useWallet = () => {
       setAccount(accounts[0]);
       setIsConnected(true);
       setWalletType('MetaMask');
+      window.ethereum.request({ method: 'eth_chainId' }).then((chainId) => {
+        const chain = Object.entries(CHAINS).find(([, value]) => value.chainId === chainId);
+        setCurrentChain(chain ? chain[0] : '');
+      });
     }
   }, []);
 
@@ -30,12 +41,28 @@ export const useWallet = () => {
       setAccount(publicKey.toString());
       setIsConnected(true);
       setWalletType('Phantom');
+      setCurrentChain('solana');
     } else {
       setAccount('');
       setIsConnected(false);
       setWalletType('');
+      setCurrentChain('');
     }
   }, []);
+
+  const switchChain = async (chainName) => {
+    if (walletType !== 'MetaMask' || !CHAINS[chainName]) return;
+    
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: CHAINS[chainName].chainId }],
+      });
+      setCurrentChain(chainName);
+    } catch (error) {
+      console.error('Error switching chain:', error);
+    }
+  };
 
   useEffect(() => {
     const phantomProvider = getPhantomProvider();
@@ -47,6 +74,12 @@ export const useWallet = () => {
       };
     } else if (window.ethereum) {
       window.ethereum.on('accountsChanged', handleMetaMaskAccount);
+      window.ethereum.on('chainChanged', () => {
+        window.ethereum.request({ method: 'eth_chainId' }).then((chainId) => {
+          const chain = Object.entries(CHAINS).find(([, value]) => value.chainId === chainId);
+          setCurrentChain(chain ? chain[0] : '');
+        });
+      });
       return () => {
         window.ethereum.removeListener('accountsChanged', handleMetaMaskAccount);
       };
@@ -105,6 +138,7 @@ export const useWallet = () => {
       setAccount('');
       setIsConnected(false);
       setWalletType('');
+      setCurrentChain('');
     } else if (walletType === 'Phantom') {
       const phantomProvider = getPhantomProvider();
       if (phantomProvider) {
@@ -112,6 +146,7 @@ export const useWallet = () => {
         setAccount('');
         setIsConnected(false);
         setWalletType('');
+        setCurrentChain('');
       }
     }
   }, [walletType]);
@@ -121,6 +156,9 @@ export const useWallet = () => {
     isConnected,
     connectWallet,
     disconnectWallet,
-    walletType
+    walletType,
+    currentChain,
+    switchChain,
+    availableChains: CHAINS
   };
 };
